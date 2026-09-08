@@ -2,7 +2,10 @@
 
 Interactive chart reconstructing Samuel Benner's 1875 economic cycle forecasts through 2059, with Kondratiev/Kitchin/Juglar wave overlays for comparison.
 
-**[Download v0.1](https://github.com/TheBlackTemple/benner-cycle-viewer/releases/download/v0.2/benner.zip)** — no build needed, just open the HTML file.
+
+**[Try It Online](https://theblacktemple.org/arsenal/benner/)**
+
+**[Download v0.2](https://github.com/TheBlackTemple/benner-cycle-viewer/releases/download/v0.2/benner.zip)** — no build needed, just open the HTML file.
 
 ![screenshot](screenshot/benner_screenshot.png)
 
