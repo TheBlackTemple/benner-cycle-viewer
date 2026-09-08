@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Benner Cycle</title>
+<style>
+  :root {
+    --ink: #2B2118;
+    --ink-muted: #5B4A36;
+    --paper: #F1E7CE;
+    --page: #E7DBBE;
+    --brass: #B79A5D;
+    --panic: #8C2F26;
+    --kondratiev: #2F5D62;
+    --kitchin: #6B7A3D;
+    --juglar: #6B3F5E;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+
+  .wrap {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0;
+    color: var(--ink);
+  }
+
+  .subtitle {
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    margin: 8px 0 0 0;
+    max-width: 640px;
+    font-size: 14px;
+    color: var(--ink-muted);
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 20px 0 16px 0;
+  }
+
+  .legend button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    border: 1px solid var(--brass);
+    border-bottom-width: 1px;
+    border-radius: 6px 6px 0 0;
+    background: var(--paper);
+    color: var(--ink);
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+    font-family: inherit;
+  }
+
+  .legend button.active {
+    opacity: 1;
+  }
+
+  .legend .swatch {
+    width: 10px;
+    height: 3px;
+    display: inline-block;
+    border-radius: 2px;
+  }
+
+  .legend .swatch.diamond {
+    width: 8px;
+    height: 8px;
+    border-radius: 0;
+    transform: rotate(45deg);
+  }
+
+  .panel {
+    border: 1px solid var(--brass);
+    border-radius: 6px;
+    background: var(--paper);
+    padding: 16px;
+    position: relative;
+  }
+
+  .presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .presets button {
+    font-size: 12px;
+    padding: 4px 10px;
+    border: 1px solid var(--brass);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ink-muted);
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .presets button.active {
+    background: var(--brass);
+    color: var(--paper);
+  }
+
+  .presets button:hover, .legend button:hover, .jump-row button:hover {
+    filter: brightness(0.96);
+  }
+
+  .jump-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: var(--ink-muted);
+  }
+
+  .jump-row label {
+    white-space: nowrap;
+  }
+
+  .jump-row input {
+    width: 84px;
+    padding: 4px 8px;
+    border: 1px solid var(--brass);
+    border-radius: 4px;
+    background: var(--page);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 12px;
+  }
+
+  .jump-row button {
+    font-size: 12px;
+    padding: 4px 10px;
+    border: 1px solid var(--brass);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ink-muted);
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .hint-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--ink-muted);
+    margin-bottom: 4px;
+  }
+
+  .chart-container {
+    position: relative;
+    width: 100%;
+  }
+
+  #chart {
+    display: block;
+    width: 100%;
+    height: 300px;
+    touch-action: none;
+  }
+
+  .tick-label {
+    font-size: 11px;
+    fill: var(--ink-muted);
+  }
+
+  .today-label {
+    font-size: 11px;
+    fill: var(--ink-muted);
+  }
+
+  #tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: var(--paper);
+    border: 1px solid var(--brass);
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--ink);
+    max-width: 220px;
+    border-radius: 2px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    display: none;
+    z-index: 10;
+  }
+
+  #tooltip .row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 3px;
+  }
+
+  #tooltip .row:first-of-type { margin-top: 4px; }
+
+  #tooltip .sw {
+    width: 8px;
+    height: 3px;
+    display: inline-block;
+  }
+
+  #tooltip .title {
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+
+  .brush-handle-hit {
+    cursor: ew-resize;
+  }
+
+  .brush-region {
+    cursor: grab;
+  }
+
+  .summary {
+    margin-top: 16px;
+    border: 1px solid var(--brass);
+    border-radius: 6px;
+    background: var(--paper);
+    padding: 14px 16px;
+    font-size: 14px;
+  }
+
+  .footnote {
+    font-size: 12px;
+    font-style: italic;
+    color: var(--ink-muted);
+    max-width: 760px;
+    margin-top: 16px;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <h1>The Benner Cycle</h1>
+    <p class="subtitle">An Ohio farmer's 1875 forecast of panics, good times, and hard times, reconstructed from his exact formulas and set beside the long waves economists charted afterward.</p>
+  </div>
+
+  <div class="legend" id="legend"></div>
+
+  <div class="panel">
+    <div class="presets" id="presets"></div>
+
+    <div class="jump-row">
+      <label for="yearJump">Jump to year</label>
+      <input type="number" id="yearJump" inputmode="numeric" />
+      <button type="button" id="yearJumpBtn">Go</button>
+    </div>
+
+    <div class="hint-row">
+      <span>&#9650; Good times &mdash; high prices, sell</span>
+      <span>Hard times &mdash; low prices, buy &#9660;</span>
+    </div>
+
+    <div class="chart-container">
+      <svg id="chart" preserveAspectRatio="none"></svg>
+      <div id="tooltip"></div>
+    </div>
+  </div>
+
+  <div class="summary" id="summary"></div>
+
+  <p class="footnote">
+    The chart is two of Benner's cycles layered together, as in his original: the bold major cycle runs Panic to Panic on his 20-16-18 year formula, and the lighter minor cycle runs Good Times to Hard Times on his 8-9-10 / 9-7-11 year formula &mdash; both reconstructed exactly from his published tables through 2059. The Kondratiev, Kitchin, and Juglar overlays are illustrative sine curves for comparison only &mdash; unlike Benner's fixed, falsifiable table, their real-world dating and even their existence are disputed among economists.
+  </p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Palette ----------
+  var INK = "#2B2118";
+  var INK_MUTED = "#5B4A36";
+  var PAPER = "#F1E7CE";
+  var PAGE = "#E7DBBE";
+  var BRASS = "#B79A5D";
+  var PANIC = "#8C2F26";
+  var KONDRATIEV = "#2F5D62";
+  var KITCHIN = "#6B7A3D";
+  var JUGLAR = "#6B3F5E";
+  var QUARTER = "#8A6D3B";
+
+  var START_YEAR = 1780;
+  var END_YEAR = 2059;
+
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  var CURRENT_YEAR = clamp(new Date().getFullYear(), START_YEAR, END_YEAR);
+  var DEFAULT_HALF_SPAN = 25;
+
+  // ---------- Benner's own formulas, reconstructed exactly ----------
+  function generateYears(start, deltas, limit) {
+    var years = [start];
+    var current = start;
+    var i = 0;
+    while (true) {
+      current += deltas[i % deltas.length];
+      if (current > limit) break;
+      years.push(current);
+      i++;
+    }
+    return years;
+  }
+
+  var GOOD_YEARS = new Set(generateYears(1783, [8, 9, 10], END_YEAR));
+  var HARD_YEARS = new Set(generateYears(1780, [9, 7, 11], END_YEAR));
+  var PANIC_YEARS = new Set(generateYears(1783, [20, 16, 18], END_YEAR));
+
+  var MAJOR_TROUGH_YEARS = (function () {
+    var panics = Array.from(PANIC_YEARS).sort(function (a, b) { return a - b; });
+    var troughs = new Set();
+    for (var i = 0; i < panics.length - 1; i++) {
+      troughs.add(Math.round((panics[i] + panics[i + 1]) / 2));
+    }
+    return troughs;
+  })();
+
+  function buildMinorVertices() {
+    var verts = [];
+    GOOD_YEARS.forEach(function (y) { verts.push({ year: y, value: 1 }); });
+    HARD_YEARS.forEach(function (y) { verts.push({ year: y, value: -1 }); });
+    verts.sort(function (a, b) { return a.year - b.year; });
+    return verts;
+  }
+
+  function buildMajorVertices() {
+    var verts = [];
+    PANIC_YEARS.forEach(function (y) { verts.push({ year: y, value: 1 }); });
+    MAJOR_TROUGH_YEARS.forEach(function (y) { verts.push({ year: y, value: -1 }); });
+    verts.sort(function (a, b) { return a.year - b.year; });
+    return verts;
+  }
+
+  function interpolate(vertices, year) {
+    if (year <= vertices[0].year) return vertices[0].value;
+    if (year >= vertices[vertices.length - 1].year) return vertices[vertices.length - 1].value;
+    for (var i = 0; i < vertices.length - 1; i++) {
+      var a = vertices[i];
+      var b = vertices[i + 1];
+      if (year >= a.year && year <= b.year) {
+        var t = (year - a.year) / (b.year - a.year);
+        return a.value + t * (b.value - a.value);
+      }
+    }
+    return 0;
+  }
+
+  function minorPhaseFor(year) {
+    if (GOOD_YEARS.has(year)) return "Good Times";
+    if (HARD_YEARS.has(year)) return "Hard Times";
+    return "transition";
+  }
+
+  function majorPhaseFor(year) {
+    if (PANIC_YEARS.has(year)) return "Panic (peak)";
+    if (MAJOR_TROUGH_YEARS.has(year)) return "Major trough";
+    return "transition";
+  }
+
+  function kondratievSeason(year, period, phaseShift) {
+    var t = (((year - phaseShift) % period) + period) % period;
+    var deg = (t / period) * 360;
+    if (deg < 90) return "Spring";
+    if (deg < 180) return "Summer";
+    if (deg < 270) return "Autumn";
+    return "Winter";
+  }
+
+  function buildData() {
+    var minorVertices = buildMinorVertices();
+    var majorVertices = buildMajorVertices();
+    var rows = [];
+    for (var year = START_YEAR; year <= END_YEAR; year++) {
+      var bennerMinor = interpolate(minorVertices, year);
+      var bennerMajor = interpolate(majorVertices, year);
+      var kondratiev = 0.85 * Math.sin((2 * Math.PI * (year - 1848)) / 54);
+      var kitchin = 0.32 * Math.sin((2 * Math.PI * (year - 1780)) / 4);
+      var juglar = 0.55 * Math.sin((2 * Math.PI * (year - 1782)) / 9);
+      rows.push({
+        year: year,
+        bennerMinor: bennerMinor,
+        bennerMajor: bennerMajor,
+        kondratiev: kondratiev,
+        kitchin: kitchin,
+        juglar: juglar,
+        panicMarker: PANIC_YEARS.has(year) ? bennerMajor : null,
+        minorPhase: minorPhaseFor(year),
+        majorPhase: majorPhaseFor(year),
+        season: kondratievSeason(year, 54, 1848)
+      });
+    }
+    return rows;
+  }
+
+  var DATA = buildData();
+
+  function defaultRange() {
+    var from = CURRENT_YEAR - DEFAULT_HALF_SPAN;
+    var to = CURRENT_YEAR + DEFAULT_HALF_SPAN;
+    var span = to - from;
+    if (from < START_YEAR) { from = START_YEAR; to = Math.min(END_YEAR, from + span); }
+    if (to > END_YEAR) { to = END_YEAR; from = Math.max(START_YEAR, to - span); }
+    return { from: from, to: to };
+  }
+
+  function rangeFromYearAndSpan(year, span) {
+    var half = span / 2;
+    var from = Math.round(year - half);
+    var to = Math.round(year + half);
+    if (from < START_YEAR) { to = Math.min(END_YEAR, to + (START_YEAR - from)); from = START_YEAR; }
+    if (to > END_YEAR) { from = Math.max(START_YEAR, from - (to - END_YEAR)); to = END_YEAR; }
+    return { from: from, to: to };
+  }
+
+  var RANGE_PRESETS = [
+    { label: "Now (\u00b125 yrs)", dynamic: function () { return defaultRange(); } },
+    { label: "Now to 2059", dynamic: function () { return { from: CURRENT_YEAR, to: END_YEAR }; } },
+    { label: "Full range", from: START_YEAR, to: END_YEAR },
+    { label: "20th century", from: 1900, to: 2000 },
+    { label: "Since 1980", from: 1980, to: END_YEAR }
+  ];
+
+  // ---------- State ----------
+  var show = {
+    bennerMajor: true,
+    bennerMinor: true,
+    panics: true,
+    kondratiev: true,
+    kitchin: false,
+    juglar: false,
+    quarterLines: false
+  };
+
+  var initial = defaultRange();
+  var brush = { from: initial.from, to: initial.to };
+
+  var legendItems = [
+    { key: "bennerMajor", label: "Major Cycle (Panic-to-Panic)", color: INK, kind: "line" },
+    { key: "bennerMinor", label: "Minor Cycle (Good / Hard Times)", color: INK_MUTED, kind: "line" },
+    { key: "panics", label: "Panic Years", color: PANIC, kind: "diamond" },
+    { key: "kondratiev", label: "Kondratiev Wave (\u224854yr)", color: KONDRATIEV, kind: "dash" },
+    { key: "kitchin", label: "Kitchin Cycle (\u22484yr)", color: KITCHIN, kind: "dash" },
+    { key: "juglar", label: "Juglar Cycle (\u22489yr)", color: JUGLAR, kind: "dash" },
+    { key: "quarterLines", label: "Quarter Gridlines (25/50/75%)", color: QUARTER, kind: "dash" }
+  ];
+
+  // ---------- Layout (recomputed each render from the container's real pixel size) ----------
+  var W, H, plotLeft, plotRight, plotTop, plotBottom, plotWidth, plotHeight;
+  var xAxisLabelY, brushTop, brushHeight, brushBottom;
+
+  var yMin = -1.7, yMax = 1.7;
+  function yToPix(v) {
+    return plotTop + (yMax - v) / (yMax - yMin) * plotHeight;
+  }
+
+  function niceStep(span, targetCount) {
+    var candidates = [1, 2, 5, 10, 20, 25, 40, 50, 100];
+    for (var i = 0; i < candidates.length; i++) {
+      var step = candidates[i];
+      if (span / step <= targetCount) return step;
+    }
+    return 100;
+  }
+
+  function xToPix(year, domain) {
+    return plotLeft + (year - domain[0]) / (domain[1] - domain[0]) * plotWidth;
+  }
+
+  var svgns = "http://www.w3.org/2000/svg";
+  function el(tag, attrs) {
+    var e = document.createElementNS(svgns, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  function dataIndex(year) { return year - START_YEAR; }
+
+  function buildPath(domain, key) {
+    var lo = Math.max(START_YEAR, Math.floor(domain[0]));
+    var hi = Math.min(END_YEAR, Math.ceil(domain[1]));
+    var d = "";
+    for (var y = lo; y <= hi; y++) {
+      var row = DATA[dataIndex(y)];
+      var x = xToPix(y, domain);
+      var yy = yToPix(row[key]);
+      d += (y === lo ? "M " : "L ") + x.toFixed(2) + " " + yy.toFixed(2) + " ";
+    }
+    return d;
+  }
+
+  // ---------- Rendering ----------
+  var svg = document.getElementById("chart");
+  var tooltip = document.getElementById("tooltip");
+  var captureEl = null;
+
+  document.addEventListener("touchstart", function (e) {
+    if (e.target !== captureEl) tooltip.style.display = "none";
+  }, { passive: true });
+
+  function computeLayout() {
+    var containerEl = svg.parentElement;
+    var measured = containerEl.getBoundingClientRect().width;
+    W = Math.max(280, Math.round(measured || 900));
+    H = 300;
+
+    plotTop = 14;
+    plotBottom = 214;
+    plotHeight = plotBottom - plotTop;
+    xAxisLabelY = 230;
+    brushTop = 248;
+    brushHeight = 26;
+    brushBottom = brushTop + brushHeight;
+
+    plotLeft = 14;
+    plotRight = W - 14;
+    plotWidth = plotRight - plotLeft;
+
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+  }
+
+  function render() {
+    computeLayout();
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    var domain = [brush.from, brush.to];
+
+    // background clip for plot area
+    var clipId = "plotClip";
+    var defs = el("defs", {});
+    var clip = el("clipPath", { id: clipId });
+    clip.appendChild(el("rect", { x: plotLeft, y: plotTop, width: plotWidth, height: plotHeight }));
+    defs.appendChild(clip);
+    svg.appendChild(defs);
+
+    // horizontal gridlines
+    var gridVals = [-1.5, -1, -0.5, 0, 0.5, 1, 1.5];
+    gridVals.forEach(function (v) {
+      var yy = yToPix(v);
+      svg.appendChild(el("line", {
+        x1: plotLeft, x2: plotRight, y1: yy, y2: yy,
+        stroke: BRASS, "stroke-opacity": 0.35, "stroke-dasharray": "1 6"
+      }));
+    });
+
+    // toggleable 25/50/75% reference lines
+    if (show.quarterLines) {
+      [25, 50, 75].forEach(function (pct) {
+        var val = yMin + (pct / 100) * (yMax - yMin);
+        var yy = yToPix(val);
+        svg.appendChild(el("line", {
+          x1: plotLeft, x2: plotRight, y1: yy, y2: yy,
+          stroke: QUARTER, "stroke-width": 1, "stroke-dasharray": "3 2"
+        }));
+        var pctLabel = el("text", {
+          x: plotRight - 4, y: yy - 3, class: "tick-label", fill: QUARTER, "text-anchor": "end"
+        });
+        pctLabel.textContent = pct + "%";
+        svg.appendChild(pctLabel);
+      });
+    }
+
+    // x axis ticks — target tick count scales with available width
+    var span = domain[1] - domain[0];
+    var targetTicks = clamp(Math.round(plotWidth / 70), 3, 9);
+    var step = niceStep(span, targetTicks);
+    var firstTick = Math.ceil(domain[0] / step) * step;
+    svg.appendChild(el("line", { x1: plotLeft, x2: plotRight, y1: plotBottom, y2: plotBottom, stroke: BRASS }));
+    for (var t = firstTick; t <= domain[1]; t += step) {
+      var xt = xToPix(t, domain);
+      svg.appendChild(el("line", { x1: xt, x2: xt, y1: plotBottom, y2: plotBottom + 4, stroke: BRASS }));
+      var label = el("text", { x: xt, y: xAxisLabelY, class: "tick-label", "text-anchor": "middle" });
+      label.textContent = t;
+      svg.appendChild(label);
+    }
+
+    // plot group (clipped)
+    var plotGroup = el("g", { "clip-path": "url(#" + clipId + ")" });
+    svg.appendChild(plotGroup);
+
+    // today reference line
+    if (CURRENT_YEAR >= domain[0] && CURRENT_YEAR <= domain[1]) {
+      var tx = xToPix(CURRENT_YEAR, domain);
+      var todayLine = el("line", {
+        x1: tx, x2: tx, y1: plotTop, y2: plotBottom,
+        stroke: INK, "stroke-dasharray": "4 4"
+      });
+      plotGroup.appendChild(todayLine);
+      var todayLabel = el("text", { x: tx - 4, y: plotTop + 12, class: "today-label", "text-anchor": "end" });
+      todayLabel.textContent = "Today";
+      plotGroup.appendChild(todayLabel);
+    }
+
+    // series lines
+    function addLine(key, color, width, dash) {
+      var attrs = {
+        d: buildPath(domain, key),
+        fill: "none",
+        stroke: color,
+        "stroke-width": width,
+        "vector-effect": "non-scaling-stroke"
+      };
+      if (dash) attrs["stroke-dasharray"] = dash;
+      plotGroup.appendChild(el("path", attrs));
+    }
+
+    if (show.bennerMajor) addLine("bennerMajor", INK, 2.5, null);
+    if (show.bennerMinor) addLine("bennerMinor", INK_MUTED, 1.25, null);
+    if (show.kondratiev) addLine("kondratiev", KONDRATIEV, 1.75, "6 3");
+    if (show.kitchin) addLine("kitchin", KITCHIN, 1.4, "2 3");
+    if (show.juglar) addLine("juglar", JUGLAR, 1.5, "4 2");
+
+    // panic markers (diamonds)
+    if (show.panics) {
+      PANIC_YEARS.forEach(function (y) {
+        if (y < domain[0] || y > domain[1]) return;
+        var row = DATA[dataIndex(y)];
+        if (row.panicMarker == null) return;
+        var cx = xToPix(y, domain);
+        var cy = yToPix(row.panicMarker);
+        plotGroup.appendChild(el("rect", {
+          x: cx - 4, y: cy - 4, width: 8, height: 8,
+          transform: "rotate(45 " + cx + " " + cy + ")",
+          fill: PANIC, stroke: INK, "stroke-width": 0.5
+        }));
+      });
+    }
+
+    // hover capture rect
+    var capture = el("rect", {
+      x: plotLeft, y: plotTop, width: plotWidth, height: plotHeight,
+      fill: "transparent"
+    });
+    capture.addEventListener("mousemove", onHover);
+    capture.addEventListener("mouseleave", function () { tooltip.style.display = "none"; });
+    capture.addEventListener("touchstart", function (e) {
+      var touch = e.touches[0];
+      if (touch) {
+        e.preventDefault();
+        onHover(touch);
+      }
+    }, { passive: false });
+    capture.addEventListener("touchmove", function (e) {
+      var touch = e.touches[0];
+      if (touch) {
+        e.preventDefault();
+        onHover(touch);
+      }
+    }, { passive: false });
+    svg.appendChild(capture);
+    captureEl = capture;
+
+    renderBrush(domain);
+    updatePresetActiveState();
+  }
+
+  function onHover(evt) {
+    var rect = svg.getBoundingClientRect();
+    var scaleX = W / rect.width;
+    var mouseX = (evt.clientX - rect.left) * scaleX;
+    var domain = [brush.from, brush.to];
+    var year = Math.round(domain[0] + (mouseX - plotLeft) / plotWidth * (domain[1] - domain[0]));
+    year = Math.max(START_YEAR, Math.min(END_YEAR, year));
+    var row = DATA[dataIndex(year)];
+    showTooltip(row, evt.clientX, evt.clientY);
+  }
+
+  function showTooltip(row, clientX, clientY) {
+    var containerRect = svg.parentElement.getBoundingClientRect();
+    var html = '<div class="title">' + row.year + '</div>';
+    html += '<div class="row"><span class="sw" style="background:' + INK + '"></span><span>Major cycle: ' + row.majorPhase + '</span></div>';
+    html += '<div class="row"><span class="sw" style="background:' + INK_MUTED + '"></span><span>Minor cycle: ' + row.minorPhase + '</span></div>';
+    if (show.kondratiev) {
+      html += '<div class="row" style="color:' + KONDRATIEV + '">Kondratiev (illustrative): ' + row.season + '</div>';
+    }
+    if (show.kitchin) {
+      html += '<div class="row" style="color:' + KITCHIN + '">Kitchin (illustrative): ' + (row.kitchin > 0 ? "expansion" : "contraction") + '</div>';
+    }
+    if (show.juglar) {
+      html += '<div class="row" style="color:' + JUGLAR + '">Juglar (illustrative): ' + (row.juglar > 0 ? "expansion" : "contraction") + '</div>';
+    }
+    tooltip.innerHTML = html;
+    tooltip.style.maxWidth = Math.min(220, containerRect.width - 16) + "px";
+    tooltip.style.display = "block";
+
+    var tw = tooltip.offsetWidth;
+    var th = tooltip.offsetHeight;
+    var margin = 8;
+
+    // preferred position: right and slightly above the cursor
+    var left = clientX - containerRect.left + 14;
+    var top = clientY - containerRect.top - 10;
+
+    // flip to the left of the cursor if there's no room on the right
+    if (left + tw + margin > containerRect.width) {
+      left = clientX - containerRect.left - tw - 14;
+    }
+
+    // clamp fully inside the container on both axes, however it was placed
+    var maxLeft = Math.max(margin, containerRect.width - tw - margin);
+    var maxTop = Math.max(margin, containerRect.height - th - margin);
+    left = clamp(left, margin, maxLeft);
+    top = clamp(top, margin, maxTop);
+
+    tooltip.style.left = left + "px";
+    tooltip.style.top = top + "px";
+  }
+
+  // ---------- Brush (mini range selector) ----------
+  var dragState = null;
+  var HANDLE_VISUAL_W = 6;
+  var HANDLE_HIT_W = 28;
+
+  function renderBrush(domain) {
+    var full = [START_YEAR, END_YEAR];
+
+    svg.appendChild(el("rect", {
+      x: plotLeft, y: brushTop, width: plotWidth, height: brushHeight,
+      fill: PAGE, stroke: BRASS
+    }));
+
+    // mini major-cycle line for context
+    var d = "";
+    for (var y = START_YEAR; y <= END_YEAR; y += 1) {
+      var row = DATA[dataIndex(y)];
+      var x = plotLeft + (y - full[0]) / (full[1] - full[0]) * plotWidth;
+      var yy = brushTop + brushHeight / 2 - row.bennerMajor * (brushHeight / 2 - 2);
+      d += (y === START_YEAR ? "M " : "L ") + x.toFixed(2) + " " + yy.toFixed(2) + " ";
+    }
+    svg.appendChild(el("path", { d: d, fill: "none", stroke: INK_MUTED, "stroke-width": 1, "vector-effect": "non-scaling-stroke" }));
+
+    var x0 = plotLeft + (brush.from - full[0]) / (full[1] - full[0]) * plotWidth;
+    var x1 = plotLeft + (brush.to - full[0]) / (full[1] - full[0]) * plotWidth;
+
+    // dim regions outside selection
+    svg.appendChild(el("rect", { x: plotLeft, y: brushTop, width: Math.max(0, x0 - plotLeft), height: brushHeight, fill: PAGE, opacity: 0.75 }));
+    svg.appendChild(el("rect", { x: x1, y: brushTop, width: Math.max(0, plotRight - x1), height: brushHeight, fill: PAGE, opacity: 0.75 }));
+
+    // selection region (draggable to move)
+    var region = el("rect", {
+      x: x0, y: brushTop, width: Math.max(1, x1 - x0), height: brushHeight,
+      fill: "transparent", stroke: INK, class: "brush-region"
+    });
+    region.addEventListener("mousedown", function (e) { startDrag(e, "move"); });
+    region.addEventListener("touchstart", function (e) { startDrag(e, "move"); }, { passive: false });
+    svg.appendChild(region);
+
+    // handles: a wide invisible hit target (touch/mouse-friendly) with a thin visible brass sliver on top
+    [["left", x0], ["right", x1]].forEach(function (pair) {
+      var hit = el("rect", {
+        x: pair[1] - HANDLE_HIT_W / 2, y: brushTop, width: HANDLE_HIT_W, height: brushHeight,
+        fill: "transparent", class: "brush-handle-hit"
+      });
+      hit.addEventListener("mousedown", function (e) { startDrag(e, pair[0]); });
+      hit.addEventListener("touchstart", function (e) { startDrag(e, pair[0]); }, { passive: false });
+      svg.appendChild(hit);
+
+      svg.appendChild(el("rect", {
+        x: pair[1] - HANDLE_VISUAL_W / 2, y: brushTop, width: HANDLE_VISUAL_W, height: brushHeight,
+        fill: BRASS, stroke: INK, "pointer-events": "none"
+      }));
+    });
+  }
+
+  function startDrag(evt, mode) {
+    var rect = svg.getBoundingClientRect();
+    var scaleX = W / rect.width;
+    var startClientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+    var startFrom = brush.from, startTo = brush.to;
+
+    dragState = { mode: mode };
+
+    function move(e) {
+      var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      var dxPix = (clientX - startClientX) * scaleX;
+      var dxYears = dxPix / plotWidth * (END_YEAR - START_YEAR);
+
+      if (mode === "move") {
+        var span = startTo - startFrom;
+        var newFrom = startFrom + dxYears;
+        var newTo = startTo + dxYears;
+        if (newFrom < START_YEAR) { newFrom = START_YEAR; newTo = START_YEAR + span; }
+        if (newTo > END_YEAR) { newTo = END_YEAR; newFrom = END_YEAR - span; }
+        brush.from = Math.round(newFrom);
+        brush.to = Math.round(newTo);
+      } else if (mode === "left") {
+        var newLeft = Math.round(startFrom + dxYears);
+        newLeft = Math.max(START_YEAR, Math.min(newLeft, brush.to - 1));
+        brush.from = newLeft;
+      } else if (mode === "right") {
+        var newRight = Math.round(startTo + dxYears);
+        newRight = Math.min(END_YEAR, Math.max(newRight, brush.from + 1));
+        brush.to = newRight;
+      }
+      render();
+    }
+
+    function up() {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      window.removeEventListener("touchmove", move);
+      window.removeEventListener("touchend", up);
+      dragState = null;
+    }
+
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    window.addEventListener("touchmove", move, { passive: false });
+    window.addEventListener("touchend", up);
+    evt.preventDefault && evt.preventDefault();
+  }
+
+  // ---------- Legend, presets & jump-to-year UI ----------
+  var legendEl = document.getElementById("legend");
+  legendItems.forEach(function (item) {
+    var btn = document.createElement("button");
+    btn.className = show[item.key] ? "active" : "";
+    var sw = document.createElement("span");
+    sw.className = "swatch" + (item.kind === "diamond" ? " diamond" : "");
+    sw.style.background = item.color;
+    if (item.kind === "dash") sw.style.opacity = "0.85";
+    btn.appendChild(sw);
+    btn.appendChild(document.createTextNode(item.label));
+    btn.style.borderBottomColor = show[item.key] ? item.color : BRASS;
+    btn.style.borderBottomWidth = show[item.key] ? "3px" : "1px";
+    btn.addEventListener("click", function () {
+      show[item.key] = !show[item.key];
+      btn.className = show[item.key] ? "active" : "";
+      btn.style.borderBottomColor = show[item.key] ? item.color : BRASS;
+      btn.style.borderBottomWidth = show[item.key] ? "3px" : "1px";
+      render();
+      renderSummary();
+    });
+    legendEl.appendChild(btn);
+  });
+
+  var presetsEl = document.getElementById("presets");
+  var presetButtons = [];
+  function presetRange(preset) {
+    return preset.dynamic ? preset.dynamic() : { from: preset.from, to: preset.to };
+  }
+  RANGE_PRESETS.forEach(function (preset) {
+    var btn = document.createElement("button");
+    btn.textContent = preset.label;
+    btn.addEventListener("click", function () {
+      var r = presetRange(preset);
+      brush.from = r.from;
+      brush.to = r.to;
+      render();
+    });
+    presetsEl.appendChild(btn);
+    presetButtons.push({ preset: preset, btn: btn });
+  });
+
+  function updatePresetActiveState() {
+    presetButtons.forEach(function (p) {
+      var r = presetRange(p.preset);
+      var isActive = r.from === brush.from && r.to === brush.to;
+      p.btn.className = isActive ? "active" : "";
+    });
+  }
+
+  var yearJumpInput = document.getElementById("yearJump");
+  yearJumpInput.min = START_YEAR;
+  yearJumpInput.max = END_YEAR;
+  yearJumpInput.placeholder = String(CURRENT_YEAR);
+
+  function jumpToYear() {
+    var year = parseInt(yearJumpInput.value, 10);
+    if (isNaN(year)) return;
+    year = clamp(year, START_YEAR, END_YEAR);
+    var span = Math.max(4, brush.to - brush.from);
+    var r = rangeFromYearAndSpan(year, span);
+    brush.from = r.from;
+    brush.to = r.to;
+    render();
+  }
+
+  document.getElementById("yearJumpBtn").addEventListener("click", jumpToYear);
+  yearJumpInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") jumpToYear();
+  });
+
+  // ---------- Summary panel ----------
+  function renderSummary() {
+    var now = DATA[dataIndex(CURRENT_YEAR)];
+    var summaryEl = document.getElementById("summary");
+    var majorColor = now.majorPhase.indexOf("Panic") === 0 ? PANIC : INK;
+    var html = '<span style="font-weight:600">In ' + CURRENT_YEAR + ': </span>';
+    html += 'the major cycle reads <span style="color:' + majorColor + '">' + now.majorPhase + '</span>, ';
+    html += 'while the minor cycle reads <span style="color:' + INK_MUTED + '">' + now.minorPhase + '</span>.';
+    if (show.kondratiev) {
+      html += ' The illustrative Kondratiev overlay sits in its <span style="color:' + KONDRATIEV + '">' + now.season + '</span> phase.';
+    }
+    summaryEl.innerHTML = html;
+  }
+
+  // ---------- Responsive re-render ----------
+  var resizeScheduled = false;
+  function scheduleRender() {
+    if (resizeScheduled) return;
+    resizeScheduled = true;
+    requestAnimationFrame(function () {
+      resizeScheduled = false;
+      render();
+    });
+  }
+
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(scheduleRender);
+    ro.observe(document.querySelector(".chart-container"));
+  } else {
+    window.addEventListener("resize", scheduleRender);
+  }
+
+  render();
+  renderSummary();
+})();
+</script>
+</body>
+</html>
