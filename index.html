@@ -732,17 +732,39 @@
   }
 
   // ---------- Brush (mini range selector) ----------
+  // Mouse: click-drag to move the selection or drag a handle to resize it.
+  // Touch: a single tap recenters the current-width selection on the tapped year.
+  // (Tracking a drag gesture through the SVG's scaled coordinates proved unreliable
+  // on mobile, so touch uses a simpler tap-based interaction instead.)
   var dragState = null;
   var HANDLE_VISUAL_W = 6;
   var HANDLE_HIT_W = 28;
 
+  function tapToRecenter(evt) {
+    var touch = evt.touches && evt.touches[0];
+    if (!touch) return;
+    evt.preventDefault();
+    var rect = svg.getBoundingClientRect();
+    var scaleX = W / rect.width;
+    var xPix = (touch.clientX - rect.left) * scaleX;
+    var year = Math.round(START_YEAR + (xPix - plotLeft) / plotWidth * (END_YEAR - START_YEAR));
+    year = clamp(year, START_YEAR, END_YEAR);
+    var span = Math.max(4, brush.to - brush.from);
+    var r = rangeFromYearAndSpan(year, span);
+    brush.from = r.from;
+    brush.to = r.to;
+    render();
+  }
+
   function renderBrush(domain) {
     var full = [START_YEAR, END_YEAR];
 
-    svg.appendChild(el("rect", {
+    var brushTrack = el("rect", {
       x: plotLeft, y: brushTop, width: plotWidth, height: brushHeight,
       fill: PAGE, stroke: BRASS
-    }));
+    });
+    brushTrack.addEventListener("touchstart", tapToRecenter, { passive: false });
+    svg.appendChild(brushTrack);
 
     // mini major-cycle line for context
     var d = "";
@@ -752,32 +774,32 @@
       var yy = brushTop + brushHeight / 2 - row.bennerMajor * (brushHeight / 2 - 2);
       d += (y === START_YEAR ? "M " : "L ") + x.toFixed(2) + " " + yy.toFixed(2) + " ";
     }
-    svg.appendChild(el("path", { d: d, fill: "none", stroke: INK_MUTED, "stroke-width": 1, "vector-effect": "non-scaling-stroke" }));
+    svg.appendChild(el("path", { d: d, fill: "none", stroke: INK_MUTED, "stroke-width": 1, "vector-effect": "non-scaling-stroke", "pointer-events": "none" }));
 
     var x0 = plotLeft + (brush.from - full[0]) / (full[1] - full[0]) * plotWidth;
     var x1 = plotLeft + (brush.to - full[0]) / (full[1] - full[0]) * plotWidth;
 
-    // dim regions outside selection
-    svg.appendChild(el("rect", { x: plotLeft, y: brushTop, width: Math.max(0, x0 - plotLeft), height: brushHeight, fill: PAGE, opacity: 0.75 }));
-    svg.appendChild(el("rect", { x: x1, y: brushTop, width: Math.max(0, plotRight - x1), height: brushHeight, fill: PAGE, opacity: 0.75 }));
+    // dim regions outside selection (visual only — let taps pass through to the track below)
+    svg.appendChild(el("rect", { x: plotLeft, y: brushTop, width: Math.max(0, x0 - plotLeft), height: brushHeight, fill: PAGE, opacity: 0.75, "pointer-events": "none" }));
+    svg.appendChild(el("rect", { x: x1, y: brushTop, width: Math.max(0, plotRight - x1), height: brushHeight, fill: PAGE, opacity: 0.75, "pointer-events": "none" }));
 
-    // selection region (draggable to move)
+    // selection region (mouse: draggable to move; touch: tap to recenter)
     var region = el("rect", {
       x: x0, y: brushTop, width: Math.max(1, x1 - x0), height: brushHeight,
       fill: "transparent", stroke: INK, class: "brush-region"
     });
     region.addEventListener("mousedown", function (e) { startDrag(e, "move"); });
-    region.addEventListener("touchstart", function (e) { startDrag(e, "move"); }, { passive: false });
+    region.addEventListener("touchstart", tapToRecenter, { passive: false });
     svg.appendChild(region);
 
-    // handles: a wide invisible hit target (touch/mouse-friendly) with a thin visible brass sliver on top
+    // handles: a wide invisible hit target (mouse-only resize) with a thin visible brass sliver on top
     [["left", x0], ["right", x1]].forEach(function (pair) {
       var hit = el("rect", {
         x: pair[1] - HANDLE_HIT_W / 2, y: brushTop, width: HANDLE_HIT_W, height: brushHeight,
         fill: "transparent", class: "brush-handle-hit"
       });
       hit.addEventListener("mousedown", function (e) { startDrag(e, pair[0]); });
-      hit.addEventListener("touchstart", function (e) { startDrag(e, pair[0]); }, { passive: false });
+      hit.addEventListener("touchstart", tapToRecenter, { passive: false });
       svg.appendChild(hit);
 
       svg.appendChild(el("rect", {
@@ -790,14 +812,13 @@
   function startDrag(evt, mode) {
     var rect = svg.getBoundingClientRect();
     var scaleX = W / rect.width;
-    var startClientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+    var startClientX = evt.clientX;
     var startFrom = brush.from, startTo = brush.to;
 
     dragState = { mode: mode };
 
     function move(e) {
-      var clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      var dxPix = (clientX - startClientX) * scaleX;
+      var dxPix = (e.clientX - startClientX) * scaleX;
       var dxYears = dxPix / plotWidth * (END_YEAR - START_YEAR);
 
       if (mode === "move") {
@@ -823,15 +844,11 @@
     function up() {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
-      window.removeEventListener("touchmove", move);
-      window.removeEventListener("touchend", up);
       dragState = null;
     }
 
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
-    window.addEventListener("touchmove", move, { passive: false });
-    window.addEventListener("touchend", up);
     evt.preventDefault && evt.preventDefault();
   }
 
